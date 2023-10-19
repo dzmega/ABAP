@@ -1,0 +1,304 @@
+Programmname: ZGS_023_ABAPPROJEKT
+
+*&---------------------------------------------------------------------*
+*& Report ZGS_023_ABAPPROJEKT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT ZGS_023_ABAPPROJEKT.
+
+data: ok_code type sy-ucomm,
+      count type i,
+      num type i,
+      tid type i,
+      eing type i,
+      check type boolean value abap_false,
+      used type boolean value abap_false,
+      got type boolean value abap_false,
+      entry type boolean value abap_false,
+      user type c LENGTH 25,
+      pw type c LENGTH 25,
+      it_teil type table of ZGS_023_TEILNEHM,
+      it_preis type table of ZGS_023_PREIS,
+      it_data type table of ZGS_023_TEILNEHM,
+      wa_teil type ZGS_023_TEILNEHM,
+      wa_buffer type ZGS_023_TEILNEHM,
+      wa_gew type ZGS_023_GEWINNER,
+      wa_preis type ZGS_023_PREIS,
+      wa_data type ZGS_023_TEILNEHM.
+
+call screen 500.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0100 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_0100 OUTPUT.
+ SET PF-STATUS '100'.
+ SET TITLEBAR '100'.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_0100 INPUT.
+  CASE ok_code.
+    WHEN 'RUN'.
+      select * from ZGS_023_TEILNEHM into Table it_teil.
+
+      loop at it_teil into wa_buffer.
+        IF wa_buffer-username = wa_teil-username.
+          check = abap_true.
+        ENDIF.
+      endloop.
+      IF check = abap_false.
+        select count(*) from ZGS_023_TEILNEHM into count.
+        wa_teil-TEILID = count + 1.
+        insert into ZGS_023_TEILNEHM values wa_teil.
+        call screen 500.
+      ENDIF.
+      IF check = abap_true.
+        MESSAGE 'Username ist bereits vergeben' TYPE 'I'.
+        check = abap_false.
+      ENDIF.
+  ENDCASE.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0200 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_0200 OUTPUT.
+ SET PF-STATUS '200'.
+ SET TITLEBAR '200'.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0200  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_0200 INPUT.
+  CASE ok_code.
+    WHEN 'RUN'.
+      call FUNCTION 'ZGS_023_GENERATE'
+      IMPORTING
+        number = num
+        .
+
+       IF num > 0 and num < 11.
+         IF eing = num.
+           call FUNCTION 'ZGS_023_SELECTID'
+           EXPORTING
+               usern = user
+               IMPORTING
+                 id = tid
+                 .
+
+           wa_gew-TEILID = tid.
+           select * from ZGS_023_PREIS into table it_preis.
+           LOOP AT it_preis into wa_preis.
+             IF wa_preis-preisid = num and wa_preis-vergeben = 'J'.
+               used = abap_true.
+             ENDIF.
+           ENDLOOP.
+           IF used = abap_true.
+             count = 0.
+             loop at it_preis into wa_preis.
+               IF got = abap_false and wa_preis-vergeben = 'N'.
+                 wa_gew-PREISID = wa_preis-preisid.
+                 got = abap_true.
+                 update ZGS_023_PREIS set vergeben = 'J' where preisid = wa_gew-PREISID.
+                 ELSEIF wa_preis-vergeben = 'J'.
+                   count = count + 1.
+               ENDIF.
+             ENDLOOP.
+             else.
+               wa_gew-PREISID = num.
+               update ZGS_023_PREIS set vergeben = 'J' where preisid = wa_gew-PREISID.
+           ENDIF.
+
+           used = abap_false.
+           got = abap_false.
+
+           IF count >= 10.
+             MESSAGE 'Tut uns leid! Alle Preise sind bereits vergeben' TYPE 'I'.
+             count = 0.
+           ENDIF.
+
+           select count(*) from ZGS_023_GEWINNER into count.
+           wa_gew-GEWINNERID = count + 1.
+           insert into ZGS_023_GEWINNER values wa_gew.
+           MESSAGE: 'Du hast Gewonnen!! Finde in der Gewinnertabelle heraus was du gewonnen hast!' TYPE 'I'.
+           else.
+             MESSAGE |Leider Verloren. Die generierte Zahl war { num }| TYPE 'I'.
+           endif.
+           IF eing > 10 or eing < 1.
+             MESSAGE 'Die Generierte Zahl geht nur von 1 bis 10!' TYPE 'I'.
+           ENDIF.
+        ENDIF.
+    WHEN 'END'.
+      leave program.
+    WHEN 'SHOW'.
+      call SCREEN 300.
+    WHEN 'SHOWALL'.
+      call screen 400.
+  ENDCASE.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0300 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_0300 OUTPUT.
+ SET PF-STATUS '300'.
+ SET TITLEBAR '300'.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0300  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_0300 INPUT.
+  CASE ok_code.
+    WHEN 'BACK'.
+      call screen 200.
+    WHEN 'END'.
+      leave PROGRAM.
+  ENDCASE.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0400 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_0400 OUTPUT.
+ SET PF-STATUS '400'.
+ SET TITLEBAR '400'.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0400  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_0400 INPUT.
+  CASE ok_code.
+    WHEN 'BACK'.
+      call screen 200.
+    WHEN 'END'.
+      leave program.
+  ENDCASE.
+ENDMODULE.
+
+***&SPWIZARD: DATA DECLARATION FOR TABLECONTROL 'PREISE'
+*&SPWIZARD: DEFINITION OF DDIC-TABLE
+TABLES:   ZGS_023_PREIS.
+
+*&SPWIZARD: TYPE FOR THE DATA OF TABLECONTROL 'PREISE'
+TYPES: BEGIN OF T_PREISE,
+         BEZEICHNUNG LIKE ZGS_023_PREIS-BEZEICHNUNG,
+         WERT LIKE ZGS_023_PREIS-WERT,
+       END OF T_PREISE.
+
+*&SPWIZARD: INTERNAL TABLE FOR TABLECONTROL 'PREISE'
+DATA:     G_PREISE_ITAB   TYPE T_PREISE OCCURS 0,
+          G_PREISE_WA     TYPE T_PREISE. "work area
+DATA:     G_PREISE_COPIED.           "copy flag
+
+*&SPWIZARD: DECLARATION OF TABLECONTROL 'PREISE' ITSELF
+CONTROLS: PREISE TYPE TABLEVIEW USING SCREEN 0300.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'PREISE'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: COPY DDIC-TABLE TO ITAB
+MODULE PREISE_INIT OUTPUT.
+  IF G_PREISE_COPIED IS INITIAL.
+*&SPWIZARD: COPY DDIC-TABLE 'ZGS_023_PREIS'
+*&SPWIZARD: INTO INTERNAL TABLE 'g_PREISE_itab'
+    SELECT * FROM ZGS_023_PREIS
+       INTO CORRESPONDING FIELDS
+       OF TABLE G_PREISE_ITAB.
+    G_PREISE_COPIED = 'X'.
+    REFRESH CONTROL 'PREISE' FROM SCREEN '0300'.
+  ENDIF.
+ENDMODULE.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'PREISE'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: MOVE ITAB TO DYNPRO
+MODULE PREISE_MOVE OUTPUT.
+  MOVE-CORRESPONDING G_PREISE_WA TO ZGS_023_PREIS.
+ENDMODULE.
+
+***&SPWIZARD: DATA DECLARATION FOR TABLECONTROL 'GEWINNER'
+*&SPWIZARD: DEFINITION OF DDIC-TABLE
+TABLES:   ZGS_023_ANZEIGEN.
+
+*&SPWIZARD: TYPE FOR THE DATA OF TABLECONTROL 'GEWINNER'
+TYPES: BEGIN OF T_GEWINNER,
+         VORNAME LIKE ZGS_023_ANZEIGEN-VORNAME,
+         NACHNAME LIKE ZGS_023_ANZEIGEN-NACHNAME,
+         ALT LIKE ZGS_023_ANZEIGEN-ALT,
+         BEZEICHNUNG LIKE ZGS_023_ANZEIGEN-BEZEICHNUNG,
+         WERT LIKE ZGS_023_ANZEIGEN-WERT,
+       END OF T_GEWINNER.
+
+*&SPWIZARD: INTERNAL TABLE FOR TABLECONTROL 'GEWINNER'
+DATA:     G_GEWINNER_ITAB   TYPE T_GEWINNER OCCURS 0,
+          G_GEWINNER_WA     TYPE T_GEWINNER. "work area
+DATA:     G_GEWINNER_COPIED.           "copy flag
+
+*&SPWIZARD: DECLARATION OF TABLECONTROL 'GEWINNER' ITSELF
+CONTROLS: GEWINNER TYPE TABLEVIEW USING SCREEN 0400.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'GEWINNER'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: COPY DDIC-TABLE TO ITAB
+MODULE GEWINNER_INIT OUTPUT.
+  IF G_GEWINNER_COPIED IS INITIAL.
+*&SPWIZARD: COPY DDIC-TABLE 'ZGS_023_ANZEIGEN'
+*&SPWIZARD: INTO INTERNAL TABLE 'g_GEWINNER_itab'
+    SELECT * FROM ZGS_023_ANZEIGEN
+       INTO CORRESPONDING FIELDS
+       OF TABLE G_GEWINNER_ITAB.
+    G_GEWINNER_COPIED = 'X'.
+    REFRESH CONTROL 'GEWINNER' FROM SCREEN '0400'.
+  ENDIF.
+ENDMODULE.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'GEWINNER'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: MOVE ITAB TO DYNPRO
+MODULE GEWINNER_MOVE OUTPUT.
+  MOVE-CORRESPONDING G_GEWINNER_WA TO ZGS_023_ANZEIGEN.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0500 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_0500 OUTPUT.
+ SET PF-STATUS '500'.
+ SET TITLEBAR '500'.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0500  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_0500 INPUT.
+  CASE ok_code.
+    WHEN 'RUN'.
+      select * from ZGS_023_TEILNEHM into Table it_data.
+      loop at it_data into wa_data.
+        IF wa_data-username = user and wa_data-password = pw.
+          entry = abap_true.
+        ENDIF.
+      endloop.
+      IF entry = abap_true.
+        call screen 200.
+        else.
+          MESSAGE 'Username oder Passwort falsch' TYPE 'I'.
+      ENDIF.
+    WHEN 'SHOW'.
+      call screen 100.
+    WHEN 'END'.
+      leave PROGRAM.
+  ENDCASE.
+ENDMODULE.
